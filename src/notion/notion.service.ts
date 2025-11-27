@@ -43,11 +43,10 @@ export class NotionService {
             rich_text: [{ text: { content: data.messages } }],
           },
           Email: {
-            rich_text: [{ text: { content: data.email } }], // ← rich_text, bukan email
+            email: data.email,
           },
           Type: {
-            // select: { name: data.type },
-            rich_text: [{ text: { content: data.type } }],
+            select: { name: data.type },
           },
           Apps: {
             rich_text: [{ text: { content: data.apps } }], // ← rich_text
