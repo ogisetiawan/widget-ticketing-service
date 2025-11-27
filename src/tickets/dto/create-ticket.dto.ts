@@ -1,9 +1,13 @@
-import { IsEmail, IsNotEmpty, IsString, IsOptional } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateTicketDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  subject: string;
+
+  @IsString()
+  @IsNotEmpty()
+  messages: string;
 
   @IsEmail()
   @IsNotEmpty()
@@ -11,17 +15,9 @@ export class CreateTicketDto {
 
   @IsString()
   @IsNotEmpty()
-  subject: string;
-
-  @IsString()
-  @IsNotEmpty()
-  description: string;
+  type: string;
 
   @IsString()
   @IsOptional()
-  userId?: string;
-
-  @IsString()
-  @IsOptional()
-  type?: 'Bug Report' | 'Feature Request' | 'Support';
+  apps?: string;
 }

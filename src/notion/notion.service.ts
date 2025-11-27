@@ -96,7 +96,7 @@ export class NotionService {
    * @returns List of pages from the database
    */
   async getPagesFromDatabase(
-    databaseId: string,
+    databaseId = this.databaseId,
     query?: {
       filter?: any;
       sorts?: any[];
@@ -149,7 +149,7 @@ export class NotionService {
    * @returns Created page object
    */
   async createPageFromDatabase(
-    databaseId: string,
+    databaseId = this.databaseId,
     properties: any,
   ): Promise<PageObjectResponse | PartialPageObjectResponse> {
     try {
