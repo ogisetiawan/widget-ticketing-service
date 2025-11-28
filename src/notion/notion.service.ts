@@ -41,15 +41,18 @@ export class NotionService {
   async createTicket(data: {
     email: string; // Wajib — dari form
     subject: string; // Wajib — judul ticket
+    user: string; // Wajib — rich text
     messages: string; // Wajib — deskripsi
     type: 'Bug Report' | 'Support' | 'Feature Request'; // Wajib — select
-    apps?: string; // Opsional — select
-    assignee?: string; // Opsional — email user
+    apps?: string; // Opsional — rich text
   }) {
     try {
       const properties: CreatePageParameters['properties'] = {
         Subject: {
           title: [{ text: { content: data.subject } }],
+        },
+        User: {
+          rich_text: [{ text: { content: data.user } }],
         },
         Messages: {
           rich_text: [{ text: { content: data.messages } }],

@@ -7,6 +7,10 @@ export class CreateTicketDto {
 
   @IsString()
   @IsNotEmpty()
+  username: string;
+
+  @IsString()
+  @IsNotEmpty()
   messages: string;
 
   @IsEmail()

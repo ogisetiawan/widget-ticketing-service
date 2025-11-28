@@ -145,6 +145,7 @@ export class TicketsController {
       const result = await this.notionService.createTicket({
         email: createTicketDto.email,
         subject: createTicketDto.subject,
+        user: createTicketDto.username,
         messages: createTicketDto.messages,
         type: createTicketDto.type as
           | 'Bug Report'
