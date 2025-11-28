@@ -11,3 +11,4 @@ export class QueryTicketsDto {
   @IsNumber()
   page_size?: number;
 }
+

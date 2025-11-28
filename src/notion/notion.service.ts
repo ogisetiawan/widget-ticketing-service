@@ -5,7 +5,22 @@ import { Client } from '@notionhq/client';
 import type {
   PageObjectResponse,
   PartialPageObjectResponse,
+  CreatePageParameters,
 } from '@notionhq/client/build/src/api-endpoints';
+
+type NotionDatabaseQueryParameters = {
+  database_id: string;
+  filter?: any;
+  sorts?: any[];
+  start_cursor?: string;
+  page_size?: number;
+};
+
+type NotionDatabaseQueryResponse = {
+  results: (PageObjectResponse | PartialPageObjectResponse)[];
+  has_more: boolean;
+  next_cursor: string | null;
+};
 
 @Injectable()
 export class NotionService {
@@ -32,36 +47,37 @@ export class NotionService {
     assignee?: string; // Opsional — email user
   }) {
     try {
+      const properties: CreatePageParameters['properties'] = {
+        Subject: {
+          title: [{ text: { content: data.subject } }],
+        },
+        Messages: {
+          rich_text: [{ text: { content: data.messages } }],
+        },
+        Email: {
+          email: data.email,
+        },
+        Type: {
+          select: { name: data.type },
+        },
+      };
+
+      if (data.apps) {
+        properties.Apps = {
+          rich_text: [{ text: { content: data.apps } }],
+        };
+      }
+
       const response = await this.notion.pages.create({
         parent: { database_id: this.databaseId },
-        properties: {
-          // ⚠️ NAMA PROPERTI HARUS PERSIS SEPERTI DI NOTION!
-          Subject: {
-            title: [{ text: { content: data.subject } }],
-          },
-          Messages: {
-            rich_text: [{ text: { content: data.messages } }],
-          },
-          Email: {
-            email: data.email,
-          },
-          Type: {
-            select: { name: data.type },
-          },
-          Apps: {
-            rich_text: [{ text: { content: data.apps } }], // ← rich_text
-          },
-          //   Status: {
-          //     select: { name: 'New' }, // status default
-          //   },
-        },
-        // Jika ingin tambahkan file, gunakan block API — tapi lebih kompleks
-        // Untuk sekarang, biarkan kosong — user bisa upload manual setelah ticket dibuat
+        properties,
       });
+
+      const responseWithUrl = response as { url?: string };
 
       return {
         id: response.id,
-        url: response,
+        url: responseWithUrl.url,
         success: true,
       };
     } catch (error) {
@@ -105,7 +121,7 @@ export class NotionService {
     },
   ) {
     try {
-      const queryParams: any = {
+      const queryParams: NotionDatabaseQueryParameters = {
         database_id: databaseId,
       };
 
@@ -125,10 +141,15 @@ export class NotionService {
         queryParams.page_size = query.page_size;
       }
 
-      // Use the correct method from Notion Client
-      // Note: TypeScript types may not include query method, but it exists in runtime
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const response = await (this.notion.databases as any).query(queryParams);
+      const notionWithQuery = this.notion as Client & {
+        databases: Client['databases'] & {
+          query: (
+            args: NotionDatabaseQueryParameters,
+          ) => Promise<NotionDatabaseQueryResponse>;
+        };
+      };
+
+      const response = await notionWithQuery.databases.query(queryParams);
       return {
         results: response.results,
         has_more: response.has_more,

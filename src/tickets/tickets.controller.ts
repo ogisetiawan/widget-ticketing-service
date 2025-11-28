@@ -19,35 +19,6 @@ export class TicketsController {
   constructor(private readonly notionService: NotionService) {}
 
   /**
-   * GET bm-ticketing/tickets/:pageId
-   * Retrieve ticket/page details by page ID
-   */
-  @Get(':pageId')
-  async getTicketById(@Param('pageId') pageId: string) {
-    if (!pageId) {
-      throw new HttpException('pageId is required', HttpStatus.BAD_REQUEST);
-    }
-
-    try {
-      const page = await this.notionService.getPage(pageId);
-      return {
-        statusCode: 200,
-        message: 'Ticket retrieved successfully',
-        data: page,
-      };
-    } catch (error: any) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to retrieve ticket',
-          error: error?.message || 'Unknown error',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  /**
    * GET bm-ticketing/tickets
    * List tickets/pages from default database
    */
@@ -128,6 +99,35 @@ export class TicketsController {
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
           message: 'Failed to retrieve tickets by query',
+          error: error?.message || 'Unknown error',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * GET bm-ticketing/tickets/:pageId
+   * Retrieve ticket/page details by page ID
+   */
+  @Get(':pageId')
+  async getTicketById(@Param('pageId') pageId: string) {
+    if (!pageId) {
+      throw new HttpException('pageId is required', HttpStatus.BAD_REQUEST);
+    }
+
+    try {
+      const page = await this.notionService.getPage(pageId);
+      return {
+        statusCode: 200,
+        message: 'Ticket retrieved successfully',
+        data: page,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Failed to retrieve ticket',
           error: error?.message || 'Unknown error',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
