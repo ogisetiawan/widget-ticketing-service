@@ -10,5 +10,7 @@ export class QueryTicketsDto {
   @Type(() => Number)
   @IsNumber()
   page_size?: number;
+  sorts?: any;
+  start_cursor?: any;
 }
 

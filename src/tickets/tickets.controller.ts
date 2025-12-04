@@ -20,90 +20,28 @@ export class TicketsController {
 
   /**
    * GET bm-ticketing/tickets
-   * List tickets/pages from default database
+   * Mendapatkan daftar tiket dari dataSourceId tertentu
    */
   @Get()
-  async listTickets(
+  async getTickets(
     @Query('page_size') pageSize?: string,
     @Query('start_cursor') startCursor?: string,
+    @Body() body?: any, // OPTIONAL Filter
   ) {
-    const query: Record<string, unknown> = {};
+    const query: any = {};
 
-    if (pageSize) {
-      const size = Number(pageSize);
-      if (Number.isNaN(size) || size < 1 || size > 100) {
-        throw new HttpException(
-          'page_size must be a number between 1 and 100',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      query.page_size = size;
-    }
+    if (pageSize) query.page_size = Number(pageSize);
+    if (startCursor) query.start_cursor = startCursor;
 
-    if (startCursor) {
-      query.start_cursor = startCursor;
-    }
+    if (body?.filter) query.filter = body.filter;
 
-    try {
-      const result = await this.notionService.getPagesFromDatabase(
-        undefined,
-        query,
-      );
+    const result = await this.notionService.getPagesFromDataSource(query);
 
-      return {
-        statusCode: 200,
-        message: 'Tickets retrieved successfully',
-        data: result,
-      };
-    } catch (error: any) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to retrieve tickets',
-          error: error?.message || 'Unknown error',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  /**
-   * GET bm-ticketing/tickets/query
-   * Query tickets/pages by filter (body)
-   */
-  @Get('query')
-  async queryTickets(@Body() body: QueryTicketsDto) {
-    const query: Record<string, unknown> = {};
-
-    if (body?.filter) {
-      query.filter = body.filter;
-    }
-
-    if (body?.page_size) {
-      query.page_size = body.page_size;
-    }
-
-    try {
-      const result = await this.notionService.getPagesFromDatabase(
-        undefined,
-        query,
-      );
-
-      return {
-        statusCode: 200,
-        message: 'Tickets retrieved successfully',
-        data: result,
-      };
-    } catch (error: any) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to retrieve tickets by query',
-          error: error?.message || 'Unknown error',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    return {
+      statusCode: 200,
+      message: 'Tickets retrieved successfully',
+      data: result,
+    };
   }
 
   /**

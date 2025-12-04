@@ -16,6 +16,11 @@ type NotionDatabaseQueryParameters = {
   page_size?: number;
 };
 
+type NotionDataSourceQueryParameters = {
+  data_source_id: string;
+  filter?: any;
+};
+
 type NotionDatabaseQueryResponse = {
   results: (PageObjectResponse | PartialPageObjectResponse)[];
   has_more: boolean;
@@ -25,10 +30,12 @@ type NotionDatabaseQueryResponse = {
 @Injectable()
 export class NotionService {
   private notion: Client;
+  notionWithQuery: any;
 
   constructor(
     @Inject('NOTION_API_KEY') private readonly apiKey: string,
     @Inject('NOTION_DATABASE_ID') private readonly databaseId: string,
+    @Inject('NOTION_DATASOURCE_ID') private readonly dataSourceId : string,
   ) {
     if (!this.apiKey) {
       throw new Error(
@@ -166,6 +173,68 @@ export class NotionService {
     }
   }
 
+  async getPagesFromDataSourceNotionExample(dataSourceId: string) {
+    // This query will filter and sort database entries. The returned pages will have a
+    // "Last ordered" property that is more recent than 2022-12-31. Any database property
+    // can be filtered or sorted. Pass multiple sort objects to the "sorts" array to
+    // apply more than one sorting rule.
+    const lastOrderedIn2023Alphabetical = await this.notion.dataSources.query({
+      data_source_id: this.dataSourceId,
+      filter: {
+        property: "Email",
+        email: {
+          "equals": "ogi@example.com"
+        },
+      },
+    })
+  
+    // Print filtered/sorted results
+    console.log(
+      'Pages with the "Last ordered" date after 2022-12-31 in descending order:'
+    )
+    console.log(JSON.stringify(lastOrderedIn2023Alphabetical, null, 2))
+    return lastOrderedIn2023Alphabetical;
+  }
+
+  /**
+ * Get list of pages from a Data Source using data_source_id
+ * @param dataSourceId - Notion Data Source ID
+ * @param query - Optional filters, sorts, pagination
+ */
+  async getPagesFromDataSource(
+    dataSourceId: string,
+    query?: {
+      filter?: any;
+      sorts?: any[];
+      start_cursor?: string;
+      page_size?: number;
+    },
+  ) {
+    try {
+      const params: any = {
+        data_source_id: this.dataSourceId,
+      };
+
+      if (query?.filter) params.filter = query.filter;
+      if (query?.sorts) params.sorts = query.sorts;
+      if (query?.start_cursor) params.start_cursor = query.start_cursor;
+      if (query?.page_size) params.page_size = query.page_size;
+
+      const response = await this.notion.dataSources.query(params);
+
+      return {
+        results: response.results,
+        has_more: response.has_more,
+        next_cursor: response.next_cursor,
+      };
+    } catch (error: any) {
+      console.error('Notion API Error:', error);
+      throw new Error(
+        `Failed to get pages from data source: ${error?.message || 'Unknown error'}`,
+      );
+    }
+  }
+
   /**
    * Create a page in a database
    * @param databaseId - The ID of the database
@@ -196,6 +265,6 @@ export class NotionService {
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `TKT-${yy}${mm}${dd}-${random}`;
+    return `TKTBM-${yy}${mm}${dd}-${random}`;
   }
 }

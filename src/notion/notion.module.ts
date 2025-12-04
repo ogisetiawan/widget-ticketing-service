@@ -25,6 +25,13 @@ import { NotionController } from './notion.controller';
       },
       inject: [ConfigService],
     },
+    {
+      provide: 'NOTION_DATASOURCE_ID',
+      useFactory: (configService: ConfigService) => {
+        return configService.get<string>('NOTION_DATASOURCE_ID');
+      },
+      inject: [ConfigService],
+    },
     NotionService,
   ],
   exports: [NotionService], // agar bisa dipakai module lain
