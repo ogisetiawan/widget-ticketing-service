@@ -1,4 +1,4 @@
-import { IsObject, IsOptional, IsNumber } from 'class-validator';
+import { IsObject, IsOptional, IsNumber, IsString, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QueryTicketsDto {
@@ -10,7 +10,12 @@ export class QueryTicketsDto {
   @Type(() => Number)
   @IsNumber()
   page_size?: number;
-  sorts?: any;
-  start_cursor?: any;
-}
 
+  @IsOptional()
+  @IsArray()
+  sorts?: any[];
+
+  @IsOptional()
+  @IsString()
+  start_cursor?: string;
+}

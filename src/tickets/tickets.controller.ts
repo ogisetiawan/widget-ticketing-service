@@ -44,6 +44,29 @@ export class TicketsController {
     };
   }
 
+
+  /**
+   * POST bm-ticketing/tickets/query
+   * Body filter Email
+   */
+  @Post('query')
+  async getTicketsByQuery(@Body() body: any) {
+    if (!body || typeof body !== 'object') {
+      throw new HttpException(
+        'Request body JSON is required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const result = await this.notionService.getPagesFromDataSourceQuery(body);
+
+    return {
+      statusCode: 200,
+      message: 'Query success',
+      data: result,
+    };
+  }
+
   /**
    * GET bm-ticketing/tickets/:pageId
    * Retrieve ticket/page details by page ID

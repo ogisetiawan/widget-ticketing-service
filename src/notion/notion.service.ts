@@ -236,6 +236,31 @@ export class NotionService {
   }
 
   /**
+   * Get list of pages from a Data Source using data_source_id
+   * @param dataSourceId - Notion Data Source ID
+   * @param query - Optional filters, sorts, pagination
+   */
+  async getPagesFromDataSourceQuery(query: any) {
+    try {
+      const response = await this.notion.dataSources.query({
+        data_source_id: this.dataSourceId,
+        ...query, // filter, page_size, start_cursor, sorts
+      });
+
+      return {
+        results: response.results,
+        has_more: response.has_more,
+        next_cursor: response.next_cursor,
+      };
+    } catch (error: any) {
+      console.error('Notion API Error:', error);
+      throw new Error(
+        `Failed to get pages from data source: ${error?.message || 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
    * Create a page in a database
    * @param databaseId - The ID of the database
    * @param properties - The properties for the new page
