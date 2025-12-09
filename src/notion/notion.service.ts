@@ -54,6 +54,8 @@ export class NotionService {
     apps?: string; // Opsional — rich text
   }) {
     try {
+      const ticketId = this.generateTicketId();
+      
       const properties: CreatePageParameters['properties'] = {
         Subject: {
           title: [{ text: { content: data.subject } }],
@@ -69,6 +71,9 @@ export class NotionService {
         },
         Type: {
           select: { name: data.type },
+        },
+        'ID Ticket': {
+          rich_text: [{ text: { content: ticketId } }],
         },
       };
 
