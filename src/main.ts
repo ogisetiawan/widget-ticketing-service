@@ -1,9 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule); //? jalankan module API
+  const app = await NestFactory.create<NestExpressApplication>(AppModule); //? jalankan module API
 
   // Enable CORS
   app.enableCors({
@@ -11,12 +13,17 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Serve static files from uploads directory
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+  });
+
   // Enable validation pipes
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false, // Allow FormData fields
     }),
   );
 

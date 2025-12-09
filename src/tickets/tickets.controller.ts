@@ -9,10 +9,23 @@ import {
   Param,
   Post,
   Query,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { NotionService } from '../notion/notion.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { QueryTicketsDto } from './dto/query-tickets.dto';
+
+// Type for uploaded file
+interface UploadedFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  buffer: Buffer;
+  size: number;
+}
 
 @Controller('bm-ticketing/tickets')
 export class TicketsController {
@@ -98,10 +111,14 @@ export class TicketsController {
 
   /**
    * POST bm-ticketing/tickets
-   * Create a new ticket/page
+   * Create a new ticket/page with file upload support
    */
   @Post()
-  async createTicket(@Body() createTicketDto: CreateTicketDto) {
+  @UseInterceptors(FilesInterceptor('files', 10)) // Allow up to 10 files
+  async createTicket(
+    @Body() createTicketDto: CreateTicketDto,
+    @UploadedFiles() files?: UploadedFile[],
+  ) {
     try {
       const result = await this.notionService.createTicket({
         email: createTicketDto.email,
@@ -113,6 +130,7 @@ export class TicketsController {
           | 'Support'
           | 'Feature Request',
         apps: createTicketDto.apps,
+        files: files || [],
       });
 
       return {

@@ -2,9 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NotionService } from './notion.service';
 import { NotionController } from './notion.controller';
-
+import { MulterModule } from '@nestjs/platform-express';
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule,],
   controllers: [NotionController],
   providers: [
     {

@@ -8,6 +8,16 @@ import type {
   CreatePageParameters,
 } from '@notionhq/client/build/src/api-endpoints';
 
+// Type for uploaded file
+interface UploadedFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  buffer: Buffer;
+  size: number;
+}
+
 type NotionDatabaseQueryParameters = {
   database_id: string;
   filter?: any;
@@ -52,6 +62,7 @@ export class NotionService {
     messages: string; // Wajib — deskripsi
     type: 'Bug Report' | 'Support' | 'Feature Request'; // Wajib — select
     apps?: string; // Opsional — rich text
+    files?: UploadedFile[]; // Opsional — array of uploaded files
   }) {
     try {
       const ticketId = this.generateTicketId();
@@ -83,10 +94,66 @@ export class NotionService {
         };
       }
 
+      // Create page first
       const response = await this.notion.pages.create({
         parent: { database_id: this.databaseId },
         properties,
       });
+
+      // If there are files, upload them to Notion and add to page
+      if (data.files && data.files.length > 0) {
+        try {
+          // Upload files directly to Notion using File Upload API
+          const notionFiles = await this.uploadFilesToNotion(data.files);
+          
+          // Update page with files in property
+          if (notionFiles.length > 0) {
+            try {
+              // Format files for Notion property
+              const formattedFiles = notionFiles.map((file) => {
+                if (file.file_upload) {
+                  return {
+                    name: file.name,
+                    type: 'file_upload',
+                    file_upload: file.file_upload,
+                  };
+                } else if (file.external) {
+                  return {
+                    name: file.name,
+                    type: 'external',
+                    external: file.external,
+                  };
+                }
+                return null;
+              }).filter((f) => f !== null);
+
+              if (formattedFiles.length > 0) {
+                await this.notion.pages.update({
+                  page_id: response.id,
+                  properties: {
+                    Attachments: {
+                      files: formattedFiles as any,
+                    },
+                  },
+                });
+              }
+            } catch (updateError) {
+              console.error('Error updating page with files property:', updateError);
+              // Fallback: Add files as blocks
+              await this.addFilesAsPageAttachments(response.id, data.files);
+            }
+          }
+        } catch (fileError) {
+          console.error('Error uploading files to Notion:', fileError);
+          // Fallback: Add files as blocks
+          try {
+            await this.addFilesAsPageAttachments(response.id, data.files);
+            await this.addFilesAsPageAttachments(response.id, data.files);
+          } catch (blockError) {
+            console.error('Error adding files as blocks:', blockError);
+          }
+        }
+      }
 
       const responseWithUrl = response as { url?: string };
 
@@ -296,5 +363,255 @@ export class NotionService {
     const dd = String(now.getDate()).padStart(2, '0');
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `TKTBM-${yy}${mm}${dd}-${random}`;
+  }
+
+  
+  /**
+   * Upload files directly to Notion using Notion File Upload API
+   * @param files - Array of uploaded files
+   * @returns Array of file data for Notion property with file_upload_id
+   */
+  private async uploadFilesToNotion(
+    files: UploadedFile[],
+  ): Promise<Array<{ name: string; type: string; file_upload?: { id: string }; external?: { url: string } }>> {
+    const https = require('https');
+    const FormData = require('form-data');
+
+    const notionFiles = await Promise.all(
+      files.map(async (file) => {
+        try {
+          // Check file size (Notion supports up to 20MB for single-part upload)
+          const maxSize = 20 * 1024 * 1024; // 20MB
+          if (file.size > maxSize) {
+            console.warn(`File ${file.originalname} is too large (${file.size} bytes). Max size is 20MB.`);
+            // Fallback to external URL for large files
+            return this.createExternalFileUrl(file);
+          }
+
+          // Step 1: Create file upload object
+          const uploadId = await this.createNotionFileUpload(file);
+          
+          if (uploadId) {
+            // Step 2: Upload file content
+            await this.uploadFileContent(uploadId, file);
+            
+            // Return file with file_upload_id
+            return {
+              name: file.originalname,
+              type: 'file_upload',
+              file_upload: {
+                id: uploadId,
+              },
+            };
+          } else {
+            // Fallback to external URL if upload fails
+            return this.createExternalFileUrl(file);
+          }
+        } catch (error) {
+          console.error(`Error uploading file ${file.originalname} to Notion:`, error);
+          // Fallback to external URL
+          return this.createExternalFileUrl(file);
+        }
+      }),
+    );
+
+    return notionFiles;
+  }
+
+  /**
+   * Create a file upload object in Notion
+   */
+  private async createNotionFileUpload(file: UploadedFile): Promise<string | null> {
+    return new Promise((resolve, reject) => {
+      const https = require('https');
+      
+      const postData = JSON.stringify({
+        mode: 'single_part',
+        name: file.originalname,
+      });
+
+      const options = {
+        hostname: 'api.notion.com',
+        port: 443,
+        path: '/v1/file_uploads',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Notion-Version': '2022-06-28',
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+        },
+      };
+
+      const req = https.request(options, (res: any) => {
+        let data = '';
+        res.on('data', (chunk: Buffer) => {
+          data += chunk.toString();
+        });
+        res.on('end', () => {
+          try {
+            const response = JSON.parse(data);
+            if (response.id) {
+              resolve(response.id);
+            } else {
+              console.error('Failed to create file upload:', response);
+              resolve(null);
+            }
+          } catch (error) {
+            console.error('Error parsing file upload response:', error);
+            resolve(null);
+          }
+        });
+      });
+
+      req.on('error', (error: Error) => {
+        console.error('Error creating file upload:', error);
+        resolve(null);
+      });
+
+      req.write(postData);
+      req.end();
+    });
+  }
+
+  /**
+   * Upload file content to Notion
+   */
+  private async uploadFileContent(uploadId: string, file: UploadedFile): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const https = require('https');
+      const FormData = require('form-data');
+      
+      const form = new FormData();
+      form.append('file', file.buffer, {
+        filename: file.originalname,
+        contentType: file.mimetype,
+      });
+
+      const options = {
+        hostname: 'api.notion.com',
+        port: 443,
+        // Correct endpoint for sending file content to Notion
+        path: `/v1/file_uploads/${uploadId}/send`,
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Notion-Version': '2022-06-28',
+          ...form.getHeaders(),
+        },
+      };
+
+      const req = https.request(options, (res: any) => {
+        res.on('data', () => {});
+        res.on('end', () => {
+          if (res.statusCode === 200 || res.statusCode === 204) {
+            resolve();
+          } else {
+            reject(new Error(`Upload failed with status ${res.statusCode}`));
+          }
+        });
+      });
+
+      req.on('error', (error: Error) => {
+        reject(error);
+      });
+
+      form.pipe(req);
+    });
+  }
+
+    /**
+   * Fallback: add files as page property Attachments using external URLs
+   */
+    async addFilesAsPageAttachments(
+      pageId: string,
+      files: UploadedFile[],
+    ): Promise<void> {
+      const fs = require('fs').promises;
+      const path = require('path');
+      const crypto = require('crypto');
+  
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+  
+      // Ensure uploads dir exists
+      try {
+        await fs.access(uploadsDir);
+      } catch {
+        await fs.mkdir(uploadsDir, { recursive: true });
+      }
+  
+      const attachmentFiles: Array<{
+        name: string;
+        type: 'external';
+        external: { url: string };
+      }> = [];
+  
+      for (const file of files) {
+        try {
+          const fileExt = path.extname(file.originalname);
+          const uniqueName = `${crypto.randomUUID()}${fileExt}`;
+          const filePath = path.join(uploadsDir, uniqueName);
+          await fs.writeFile(filePath, file.buffer);
+  
+          attachmentFiles.push({
+            name: file.originalname,
+            type: 'external',
+            external: {
+              url: `${baseUrl}/uploads/${uniqueName}`,
+            },
+          });
+        } catch (error) {
+          console.error(`Error preparing attachment ${file.originalname}:`, error);
+        }
+      }
+  
+      if (attachmentFiles.length > 0) {
+        try {
+          await this.notion.pages.update({
+            page_id: pageId,
+            properties: {
+              Attachments: {
+                files: attachmentFiles as any,
+              },
+            },
+          });
+        } catch (error) {
+          console.error('Error updating page with attachment files:', error);
+        }
+      }
+    }
+
+  /**
+   * Create external file URL as fallback
+   */
+  private async createExternalFileUrl(file: UploadedFile): Promise<{ name: string; type: string; external: { url: string } }> {
+    const fs = require('fs').promises;
+    const path = require('path');
+    const crypto = require('crypto');
+
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+
+    // Create uploads directory if it doesn't exist
+    try {
+      await fs.access(uploadsDir);
+    } catch {
+      await fs.mkdir(uploadsDir, { recursive: true });
+    }
+
+    // Save file locally
+    const fileExt = path.extname(file.originalname);
+    const uniqueName = `${crypto.randomUUID()}${fileExt}`;
+    const filePath = path.join(uploadsDir, uniqueName);
+    await fs.writeFile(filePath, file.buffer);
+
+    return {
+      name: file.originalname,
+      type: 'external',
+      external: {
+        url: `${baseUrl}/uploads/${uniqueName}`,
+      },
+    };
   }
 }
