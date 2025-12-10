@@ -11,11 +11,13 @@ import {
   Query,
   UseInterceptors,
   UploadedFiles,
+  UseGuards,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { NotionService } from '../notion/notion.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { QueryTicketsDto } from './dto/query-tickets.dto';
+import { HmacGuard } from '../common/guards/hmac.guard';
 
 // Type for uploaded file
 interface UploadedFile {
@@ -26,7 +28,7 @@ interface UploadedFile {
   buffer: Buffer;
   size: number;
 }
-
+@UseGuards(HmacGuard)
 @Controller('bm-ticketing/tickets')
 export class TicketsController {
   constructor(private readonly notionService: NotionService) {}
